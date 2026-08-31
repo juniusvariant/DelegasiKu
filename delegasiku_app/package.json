@@ -1,0 +1,35 @@
+{
+  "name": "delegasiku-monorepo",
+  "version": "0.1.0",
+  "private": true,
+  "description": "DelegasiKu - e.id delegation management system",
+  "engines": {
+    "node": ">=24.0.0",
+    "pnpm": ">=9.0.0"
+  },
+  "packageManager": "pnpm@9.15.4",
+  "scripts": {
+    "build": "turbo run build",
+    "dev": "turbo run dev",
+    "lint": "turbo run lint",
+    "format": "prettier --write \"**/*.{ts,tsx,js,jsx,json,md,css,svelte}\"",
+    "format:check": "prettier --check \"**/*.{ts,tsx,js,jsx,json,md,css,svelte}\"",
+    "type-check": "turbo run type-check",
+    "test": "turbo run test",
+    "clean": "turbo run clean && rm -rf node_modules .turbo",
+    "db:migrate": "pnpm --filter @dku/api db:migrate",
+    "db:seed": "pnpm --filter @dku/api db:seed",
+    "db:studio": "pnpm --filter @dku/api db:studio"
+  },
+  "devDependencies": {
+    "@typescript-eslint/eslint-plugin": "^8.19.1",
+    "@typescript-eslint/parser": "^8.19.1",
+    "eslint": "^9.17.0",
+    "eslint-config-prettier": "^9.1.0",
+    "js-yaml": "^5.4.1",
+    "prettier": "^3.4.2",
+    "prettier-plugin-svelte": "^3.3.2",
+    "turbo": "^2.3.3",
+    "typescript": "^5.7.2"
+  }
+}

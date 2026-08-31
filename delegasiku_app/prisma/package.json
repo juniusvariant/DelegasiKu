@@ -1,0 +1,12 @@
+{
+  "name": "@dku/prisma",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Prisma schema, migrations, and seed for DelegasiKu (not a workspace package)",
+  "devDependencies": {
+    "prisma": "6.1.0"
+  },
+  "dependencies": {
+    "@prisma/client": "6.1.0"
+  }
+}

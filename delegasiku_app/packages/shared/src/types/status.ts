@@ -1,0 +1,41 @@
+/**
+ * Delegation status enum (PRD §10.1)
+ * DRAFT → INVITED → PENDING_VERIFICATION → PENDING_ACCEPTANCE → ACTIVE
+ * Terminal states: REVOKED, EXPIRED
+ * Failure states: REJECTED, MANUAL_REVIEW, SERVICE_UNAVAILABLE
+ */
+export enum DelegationStatus {
+  DRAFT = 'DRAFT',
+  INVITED = 'INVITED',
+  PENDING_VERIFICATION = 'PENDING_VERIFICATION',
+  PENDING_ACCEPTANCE = 'PENDING_ACCEPTANCE',
+  ACTIVE = 'ACTIVE',
+  REVOKED = 'REVOKED',
+  EXPIRED = 'EXPIRED',
+  REJECTED = 'REJECTED',
+  MANUAL_REVIEW = 'MANUAL_REVIEW',
+  SERVICE_UNAVAILABLE = 'SERVICE_UNAVAILABLE',
+}
+
+/**
+ * Verification status enum (PRD §10.2)
+ */
+export enum VerificationStatus {
+  NOT_STARTED = 'NOT_STARTED',
+  PENDING = 'PENDING',
+  VERIFIED = 'VERIFIED',
+  REJECTED = 'REJECTED',
+  MANUAL_REVIEW = 'MANUAL_REVIEW',
+  SERVICE_UNAVAILABLE = 'SERVICE_UNAVAILABLE',
+}
+
+/**
+ * Public proof effective status (read-time, ADR-004)
+ * Computed at read time, not persisted
+ */
+export enum ProofStatus {
+  ACTIVE = 'ACTIVE',
+  REVOKED = 'REVOKED',
+  EXPIRED = 'EXPIRED',
+  NOT_VALID = 'NOT_VALID',
+}

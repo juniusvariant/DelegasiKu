@@ -1,0 +1,77 @@
+# ============================================================
+# DelegasiKu .gitignore
+# Keeps the public repo limited to the DelegasiKu product.
+# Vibe-coding / agent / assistant working files stay LOCAL-ONLY
+# (still fully usable on disk — just never committed/pushed).
+# ============================================================
+
+# ---------- Secrets & local env (NEVER commit) ----------
+.env
+.env.*
+!.env.example
+*.local
+
+# ---------- Vibe-coding / agent / AI-assistant files ----------
+# Agent operating docs, skill routing, installed skills, adapters
+.roo/
+agent_docs/
+AGENTS.md
+CATALOG.md
+.claude/
+.cursor/
+.cursorrules
+.codeium/
+.windsurf/
+.aider*
+.cody/
+continue/
+*.agent.md
+
+# Agent working/research artifacts for this build
+delegasiku_docs/
+brainstorm/
+README_DELEGASIKU.md
+delegasiku_app/docs/
+!delegasiku_app/docs/openapi.yaml
+
+# Local codebase-indexing tooling (Qdrant/Ollama) config
+.zooignore
+.zoo/
+.qdrant/
+
+# ---------- Dependencies & build artifacts ----------
+node_modules/
+.pnpm-store/
+dist/
+build/
+.output/
+.svelte-kit/
+.next/
+out/
+coverage/
+*.tsbuildinfo
+.turbo/
+.vercel/
+
+# ---------- Logs & temp ----------
+*.log
+logs/
+tmp/
+*.tmp
+.DS_Store
+Thumbs.db
+
+# ---------- Editor / OS ----------
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# ---------- Prisma / local data ----------
+prisma/*.db
+*.db
+*.sqlite
+
+# NOTE: .env.example is intentionally tracked (template, no secrets).
+# NOTE: delegasiku_app/ (the product source) is NOT ignored — it is committed.

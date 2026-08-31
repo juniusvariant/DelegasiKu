@@ -1,0 +1,180 @@
+# DelegasiKu — competition-day source of truth (ADR-001/002)
+# One command: docker-compose up --build
+# Runs the full seeded demo in DEMO mode (§12.6, AC-16)
+
+name: delegasiku
+
+x-common-env: &common-env
+  NODE_ENV: production
+  LOG_LEVEL: info
+  INTEGRATION_MODE: ${INTEGRATION_MODE:-DEMO}
+  DATABASE_URL: postgresql://delegasiku:${POSTGRES_PASSWORD:-delegasiku-dev}@postgres:5432/delegasiku
+  VALKEY_URL: redis://valkey:6379
+  APP_BASE_URL: ${APP_BASE_URL:-http://localhost:3000}
+  ADMIN_SESSION_SECRET: ${ADMIN_SESSION_SECRET:?Set ADMIN_SESSION_SECRET in .env}
+  NIK_HMAC_SECRET: ${NIK_HMAC_SECRET:?Set NIK_HMAC_SECRET in .env}
+  PROOF_CACHE_TTL_SECONDS: 60
+  # e.id live modes (empty in DEMO; never commit real secrets)
+  EID_VERIFIER_BASE_URL: ${EID_VERIFIER_BASE_URL:-}
+  EID_VERIFIER_CLIENT_ID: ${EID_VERIFIER_CLIENT_ID:-}
+  EID_VERIFIER_CLIENT_SECRET: ${EID_VERIFIER_CLIENT_SECRET:-}
+  EID_VERIFIER_WEBHOOK_SECRET: ${EID_VERIFIER_WEBHOOK_SECRET:-}
+  EID_VERIFIER_SCHEMA_ID: ${EID_VERIFIER_SCHEMA_ID:-}
+  EID_KYC_BASE_URL: ${EID_KYC_BASE_URL:-}
+  EID_KYC_CLIENT_ID: ${EID_KYC_CLIENT_ID:-}
+  EID_KYC_CLIENT_SECRET: ${EID_KYC_CLIENT_SECRET:-}
+  EID_KYC_HMAC_SECRET: ${EID_KYC_HMAC_SECRET:-}
+  EID_KYC_WEBHOOK_SECRET: ${EID_KYC_WEBHOOK_SECRET:-}
+
+services:
+  # -------------------------------------------------------------------------
+  # Infrastructure
+  # -------------------------------------------------------------------------
+  postgres:
+    image: postgres:18-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: delegasiku
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-delegasiku-dev}
+      POSTGRES_DB: delegasiku
+    volumes:
+      - postgres_data:/var/lib/postgresql
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U delegasiku -d delegasiku"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  valkey:
+    image: valkey/valkey:9.1-alpine
+    restart: unless-stopped
+    command: valkey-server --appendonly yes
+    volumes:
+      - valkey_data:/data
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "valkey-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  # -------------------------------------------------------------------------
+  # One-shot bootstrap: run migrations + idempotent seed, then exit
+  # -------------------------------------------------------------------------
+  migrate:
+    build:
+      context: ../..
+      dockerfile: infra/docker/api.Dockerfile
+      target: runtime
+    image: delegasiku/api:latest
+    command: ["node", "dist/migrate.js"]
+    env_file:
+      - ../../.env
+    environment:
+      <<: *common-env
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: "no"
+
+  # -------------------------------------------------------------------------
+  # Application services (built from infra/docker/*.Dockerfile in WP-09)
+  # -------------------------------------------------------------------------
+  api:
+    build:
+      context: ../..
+      dockerfile: infra/docker/api.Dockerfile
+    image: delegasiku/api:latest
+    restart: unless-stopped
+    env_file:
+      - ../../.env
+    environment:
+      <<: *common-env
+      PORT: 3001
+      HOST: 0.0.0.0
+    ports:
+      - "3001:3001"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      valkey:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:3001/healthz"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+
+  callback:
+    build:
+      context: ../..
+      dockerfile: infra/docker/callback.Dockerfile
+    image: delegasiku/callback:latest
+    restart: unless-stopped
+    environment:
+      <<: *common-env
+      PORT: 3002
+      HOST: 0.0.0.0
+    ports:
+      - "3002:3002"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      valkey:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:3002/healthz"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+
+  worker:
+    build:
+      context: ../..
+      dockerfile: infra/docker/worker.Dockerfile
+    image: delegasiku/worker:latest
+    restart: unless-stopped
+    environment:
+      <<: *common-env
+      WORKER_CONCURRENCY: 5
+    depends_on:
+      postgres:
+        condition: service_healthy
+      valkey:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+
+  web:
+    build:
+      context: ../..
+      dockerfile: infra/docker/web.Dockerfile
+      args:
+        API_BASE_URL: http://api:3001
+    image: delegasiku/web:latest
+    restart: unless-stopped
+    environment:
+      <<: *common-env
+      PORT: 3000
+      HOST: 0.0.0.0
+      # Internal SSR base (server-side fetches inside the compose network)
+      API_BASE_URL: http://api:3001
+      # Public api origin used by the BROWSER (must be reachable by end users)
+      PUBLIC_API_BASE_URL: ${PUBLIC_API_BASE_URL:-http://localhost:3001}
+      ORIGIN: ${APP_BASE_URL:-http://localhost:3000}
+    ports:
+      - "3000:3000"
+    depends_on:
+      api:
+        condition: service_healthy
+
+volumes:
+  postgres_data:
+  valkey_data:

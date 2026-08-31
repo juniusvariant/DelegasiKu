@@ -1,0 +1,155 @@
+// Prisma schema for DelegasiKu
+// Per PRD §14 and TECHNICAL-REFERENCE.md §2
+// Database: PostgreSQL 18
+
+generator client {
+  provider = "prisma-client-js"
+  // native = dev machine (darwin); linux-musl = alpine containers (WP-09)
+  binaryTargets = ["native", "linux-musl-openssl-3.0.x"]
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ============================================================================
+// ORGANIZATIONS
+// ============================================================================
+
+model Organization {
+  id          String   @id @default(uuid())
+  name        String
+  demoStatus  String   @map("demo_status") // "demo" | "sandbox" | "production"
+  status      String   @default("enabled") // "enabled" | "disabled"
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  cases       Case[]
+  delegations Delegation[]
+
+  @@map("organizations")
+}
+
+// ============================================================================
+// CASES
+// ============================================================================
+
+model Case {
+  id             String   @id @default(uuid())
+  organizationId String   @map("organization_id")
+  reference      String   @unique // e.g., "PMT-JKS-2026-001"
+  caseType       String   @map("case_type") // "permit"
+  title          String
+  description    String?
+  status         String   @default("active") // "active" | "closed"
+  createdAt      DateTime @default(now()) @map("created_at")
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  delegations  Delegation[]
+
+  @@map("cases")
+}
+
+// ============================================================================
+// REPRESENTATIVE IDENTITIES
+// ============================================================================
+
+model RepresentativeIdentity {
+  id                   String    @id @default(uuid())
+  subjectReference     String    @unique @map("subject_reference") // Keyed-HMAC or opaque, NEVER raw NIK
+  subjectReferenceType String    @map("subject_reference_type") // "nik_hmac" | "provider_ref" | "did"
+  displayName          String?   @map("display_name") // With consent only
+  verificationProvider String    @map("verification_provider") // "e.id"
+  verificationStatus   String    @map("verification_status") // PRD §10.2 enum
+  verifiedAt           DateTime? @map("verified_at")
+  evidenceExpiresAt    DateTime? @map("evidence_expires_at")
+  createdAt            DateTime  @default(now()) @map("created_at")
+  updatedAt            DateTime  @updatedAt @map("updated_at")
+
+  delegations Delegation[]
+
+  @@map("representative_identities")
+}
+
+// ============================================================================
+// DELEGATIONS
+// ============================================================================
+
+model Delegation {
+  id                       String    @id @default(uuid())
+  organizationId           String    @map("organization_id")
+  caseId                   String    @map("case_id")
+  representativeIdentityId String?   @map("representative_identity_id")
+  invitationTokenDigest    String    @unique @map("invitation_token_digest") // SHA-256 of T1
+  publicProofTokenDigest   String    @unique @map("public_proof_token_digest") // SHA-256 of T2
+  allowedAction            String    @map("allowed_action") // Single action per delegation
+  scopeSnapshot            Json      @map("scope_snapshot") // Immutable scope (FR-08)
+  validFrom                DateTime  @map("valid_from")
+  expiresAt                DateTime  @map("expires_at")
+  status                   String    @default("DRAFT") // PRD §10.1 enum
+  acceptedAt               DateTime? @map("accepted_at")
+  activatedAt              DateTime? @map("activated_at")
+  revokedAt                DateTime? @map("revoked_at")
+  revocationReason         String?   @map("revocation_reason")
+  createdAt                DateTime  @default(now()) @map("created_at")
+  updatedAt                DateTime  @updatedAt @map("updated_at")
+
+  organization          Organization           @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  case                  Case                   @relation(fields: [caseId], references: [id], onDelete: Cascade)
+  representativeIdentity RepresentativeIdentity? @relation(fields: [representativeIdentityId], references: [id], onDelete: SetNull)
+  
+  verificationAttempts  VerificationAttempt[]
+  auditEvents           AuditEvent[]
+
+  @@index([organizationId])
+  @@index([caseId])
+  @@index([representativeIdentityId])
+  @@index([status])
+  @@index([invitationTokenDigest])
+  @@index([publicProofTokenDigest])
+  @@map("delegations")
+}
+
+// ============================================================================
+// VERIFICATION ATTEMPTS
+// ============================================================================
+
+model VerificationAttempt {
+  id                    String    @id @default(uuid())
+  delegationId          String    @map("delegation_id")
+  mode                  String // "LIVE_VERIFIER" | "LIVE_KYC" | "DEMO"
+  provider              String // "e.id"
+  referenceId           String    @map("reference_id") // DelegasiKu correlation ID
+  externalTransactionId String?   @map("external_transaction_id") // Protected, not public
+  status                String // PRD §10.2 enum
+  reasonCode            String?   @map("reason_code")
+  startedAt             DateTime  @default(now()) @map("started_at")
+  completedAt           DateTime? @map("completed_at")
+
+  delegation Delegation @relation(fields: [delegationId], references: [id], onDelete: Cascade)
+
+  @@index([delegationId])
+  @@index([referenceId])
+  @@map("verification_attempts")
+}
+
+// ============================================================================
+// AUDIT EVENTS
+// ============================================================================
+
+model AuditEvent {
+  id             String   @id @default(uuid())
+  delegationId   String   @map("delegation_id")
+  eventType      String   @map("event_type") // FR-14 event list
+  actorType      String   @map("actor_type") // "admin" | "representative" | "system"
+  actorReference String?  @map("actor_reference")
+  safeMetadata   Json     @map("safe_metadata") // Allowlist only, never raw provider payloads
+  createdAt      DateTime @default(now()) @map("created_at")
+
+  delegation Delegation @relation(fields: [delegationId], references: [id], onDelete: Cascade)
+
+  @@index([delegationId])
+  @@index([eventType])
+  @@index([createdAt])
+  @@map("audit_events")
+}

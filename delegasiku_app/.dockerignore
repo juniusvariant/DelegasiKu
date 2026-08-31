@@ -1,0 +1,26 @@
+# Never bake secrets or local state into images (AC-15)
+.env
+.env.*
+!.env.example
+
+# Dependencies & build outputs (rebuilt inside the image)
+node_modules
+**/node_modules
+dist
+build
+.svelte-kit
+.turbo
+**/tsconfig.tsbuildinfo
+
+# Local docs & tooling not needed at runtime
+docs
+*.md
+!README.md
+.git
+.gitignore
+.pnpmfile.cjs
+
+# Misc
+.DS_Store
+coverage
+*.log
