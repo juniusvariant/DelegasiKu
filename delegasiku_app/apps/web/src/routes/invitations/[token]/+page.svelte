@@ -1,7 +1,7 @@
 <script lang="ts">
-  import { onMount } from 'svelte';
+  import { onMount, onDestroy } from 'svelte';
   import { page } from '$app/stores';
-  import { api } from '$lib/api';
+  import { api, ApiError } from '$lib/api';
   import { actionLabel } from '$lib/actions';
   import QrCode from '$lib/components/QrCode.svelte';
 
@@ -13,6 +13,7 @@
   let verificationUrl = $state('');
   let error = $state('');
   let busy = $state(false);
+  let pollInterval: ReturnType<typeof setInterval> | null = null;
 
   const token = $derived($page.params.token);
 
@@ -25,6 +26,17 @@
       step = 'error';
     }
   });
+
+  onDestroy(() => {
+    stopPolling();
+  });
+
+  function stopPolling() {
+    if (pollInterval) {
+      clearInterval(pollInterval);
+      pollInterval = null;
+    }
+  }
 
   async function consent() {
     busy = true;
@@ -50,15 +62,48 @@
       // LIVE: show the QR/wallet URL and wait for the holder to scan+approve
       verificationUrl = res.verificationUrl ?? '';
       step = 'scan';
+      startPolling();
     }
+  }
+
+  function startPolling() {
+    // Poll every 2 seconds to check if verification completed
+    pollInterval = setInterval(async () => {
+      try {
+        const status = await api.checkInvitationStatus(token);
+        if (status.canAccept) {
+          // Verification complete! Move to accept step
+          stopPolling();
+          step = 'accept';
+        } else if (status.isFailed) {
+          // Verification failed
+          stopPolling();
+          error = 'Verification failed. Please contact support or try again.';
+          step = 'error';
+        }
+        // If still pending, keep polling
+      } catch (e) {
+        // Invitation became invalid (expired, revoked, etc)
+        stopPolling();
+        error = e instanceof Error ? e.message : 'Invitation unavailable';
+        step = 'error';
+      }
+    }, 2000);
   }
 
   async function accept() {
     busy = true;
+    error = ''; // Clear any previous errors
     try {
       await api.acceptDelegation(token);
+      stopPolling();
       step = 'done';
     } catch (e) {
+      if (e instanceof ApiError && e.code === 'NOT_PENDING_ACCEPTANCE') {
+        // Verification still processing — keep polling, show temporary message
+        error = 'Verification still processing. Please wait...';
+        return;
+      }
       error = e instanceof Error ? e.message : 'Acceptance failed';
       step = 'error';
     } finally {
@@ -96,10 +141,10 @@
       </button>
 
     {:else if step === 'scan'}
-      <h1 class="text-xl font-semibold">Scan to Verify</h1>
+      <h1 class="text-xl font-semibold">Waiting for Verification</h1>
       <p class="mt-2 text-sm text-[var(--muted-foreground)]">
         Scan this QR code with your <strong>e.id wallet app</strong> and approve the credential
-        presentation. This proves your identity.
+        presentation. We'll automatically detect when you're verified.
       </p>
 
       <div class="mt-5">
@@ -117,13 +162,17 @@
         </a>
       {/if}
 
-      <div class="mt-6 rounded-lg bg-[var(--muted)] p-3 text-xs text-[var(--muted-foreground)]">
-        Waiting for you to approve in the wallet app. Once approved, continue below.
+      <div class="mt-6 rounded-lg bg-[var(--muted)] p-3">
+        <div class="flex items-center gap-2">
+          <div class="h-2 w-2 animate-pulse rounded-full bg-[var(--primary)]"></div>
+          <p class="text-xs text-[var(--muted-foreground)]">
+            Waiting for approval in your wallet app...
+          </p>
+        </div>
+        {#if error}
+          <p class="mt-2 text-xs text-[var(--status-pending)]">{error}</p>
+        {/if}
       </div>
-
-      <button onclick={accept} disabled={busy} class="mt-6 min-h-[48px] w-full rounded-lg bg-[var(--primary)] px-4 py-3 font-medium text-[var(--primary-foreground)] disabled:opacity-50">
-        {busy ? 'Checking…' : "I've Approved — Continue"}
-      </button>
 
     {:else if step === 'accept'}
       <h1 class="text-xl font-semibold text-[var(--status-active)]">✓ Verified</h1>

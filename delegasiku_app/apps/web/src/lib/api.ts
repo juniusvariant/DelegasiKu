@@ -139,5 +139,10 @@ export const api = {
       { method: 'POST' }
     ),
 
+  checkInvitationStatus: (token: string) =>
+    request<{ status: string; canAccept: boolean; isPending: boolean; isFailed: boolean }>(
+      `/api/invitations/${token}/status`
+    ),
+
   resolveProof: (token: string) => request<ProofResult>(`/api/proofs/${token}`),
 };

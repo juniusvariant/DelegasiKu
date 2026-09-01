@@ -78,6 +78,11 @@ export async function delegationRoutes(app: FastifyInstance, service: Delegation
     return service.startVerification(token);
   });
 
+  app.get('/api/invitations/:token/status', async (request) => {
+    const { token } = tokenParamSchema.parse(request.params);
+    return service.checkInvitationStatus(token);
+  });
+
   app.post('/api/invitations/:token/accept', async (request) => {
     const { token } = tokenParamSchema.parse(request.params);
     const result = await service.acceptDelegation(token);

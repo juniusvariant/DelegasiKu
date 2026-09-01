@@ -11,6 +11,7 @@ x-common-env: &common-env
   DATABASE_URL: postgresql://delegasiku:${POSTGRES_PASSWORD:-delegasiku-dev}@postgres:5432/delegasiku
   VALKEY_URL: redis://valkey:6379
   APP_BASE_URL: ${APP_BASE_URL:-http://localhost:3000}
+  CALLBACK_BASE_URL: ${CALLBACK_BASE_URL:-http://localhost:3002}
   ADMIN_SESSION_SECRET: ${ADMIN_SESSION_SECRET:?Set ADMIN_SESSION_SECRET in .env}
   NIK_HMAC_SECRET: ${NIK_HMAC_SECRET:?Set NIK_HMAC_SECRET in .env}
   PROOF_CACHE_TTL_SECONDS: 60

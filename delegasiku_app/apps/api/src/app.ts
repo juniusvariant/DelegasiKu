@@ -84,7 +84,8 @@ export async function buildApp() {
   const delegationService = new DelegationService(
     new DelegationRepository(app.prisma),
     adapter,
-    config.APP_BASE_URL
+    config.APP_BASE_URL,
+    config.CALLBACK_BASE_URL
   );
 
   // Routes

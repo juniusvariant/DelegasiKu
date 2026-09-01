@@ -20,6 +20,8 @@ const configSchema = z.object({
     .default(DEFAULT_INTEGRATION_MODE),
 
   APP_BASE_URL: z.string().url(),
+  // Callback service URL for webhooks (must be publicly reachable in production)
+  CALLBACK_BASE_URL: z.string().url().optional(),
 
   // Secrets (never logged; validated for presence)
   ADMIN_SESSION_SECRET: z.string().min(16),

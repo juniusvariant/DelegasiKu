@@ -37,7 +37,8 @@ export class DelegationService {
   constructor(
     private readonly repo: DelegationRepository,
     private readonly adapter: VerificationAdapter,
-    private readonly appBaseUrl: string
+    private readonly appBaseUrl: string,
+    private readonly callbackBaseUrl?: string
   ) {}
 
   /**
@@ -125,6 +126,35 @@ export class DelegationService {
   }
 
   /**
+   * Check invitation status for polling (allows UI to wait for async verification)
+   * Unlike resolveInvitation, this allows PENDING_VERIFICATION and PENDING_ACCEPTANCE
+   * so the UI can poll until the worker completes the verification.
+   */
+  async checkInvitationStatus(token: string) {
+    const delegation = await this.findByTokenDigest(token, 'invitation');
+
+    if (delegation.status === DelegationStatus.REVOKED) {
+      throw new ConflictError('Invitation has been revoked', 'INVITATION_REVOKED');
+    }
+    if (delegation.acceptedAt) {
+      throw new ConflictError('Invitation already accepted', 'INVITATION_ALREADY_ACCEPTED');
+    }
+    if (new Date() >= delegation.expiresAt) {
+      throw new ConflictError('Invitation expired', 'INVITATION_EXPIRED');
+    }
+
+    return {
+      status: delegation.status,
+      canAccept: delegation.status === DelegationStatus.PENDING_ACCEPTANCE,
+      isPending: delegation.status === DelegationStatus.PENDING_VERIFICATION,
+      isFailed:
+        delegation.status === DelegationStatus.REJECTED ||
+        delegation.status === DelegationStatus.SERVICE_UNAVAILABLE ||
+        delegation.status === DelegationStatus.MANUAL_REVIEW,
+    };
+  }
+
+  /**
    * Start verification via adapter (FR-05)
    * Transitions INVITED → PENDING_VERIFICATION
    */
@@ -137,7 +167,10 @@ export class DelegationService {
       throw new ConflictError('Cannot start verification from current state', 'INVALID_TRANSITION');
     }
 
-    const callbackUrl = `${this.appBaseUrl}/api/callbacks/eid/verification`;
+    // Use CALLBACK_BASE_URL if provided (for separate callback service),
+    // otherwise fall back to APP_BASE_URL (monolith deployment)
+    const baseUrl = this.callbackBaseUrl ?? this.appBaseUrl;
+    const callbackUrl = `${baseUrl}/api/callbacks/eid/presentation`;
     const session = await this.adapter.startVerification(delegationId, callbackUrl);
 
     await this.repo.update(delegationId, { status: DelegationStatus.PENDING_VERIFICATION });
