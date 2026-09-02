@@ -91,6 +91,51 @@
     }, 2000);
   }
 
+  async function skipToAccept() {
+    // For demo/testing: skip verification and go straight to accept
+    // Only use when e.id webhook is not working
+    busy = true;
+    error = '';
+    try {
+      // Try to accept directly — this will fail if verification not complete
+      // but shows the user what error to expect
+      await api.acceptDelegation(token);
+      stopPolling();
+      step = 'done';
+    } catch (e) {
+      if (e instanceof ApiError && e.code === 'NOT_PENDING_ACCEPTANCE') {
+        error = 'Verification not complete. Please scan QR and approve in e.id wallet first.';
+      } else {
+        error = e instanceof Error ? e.message : 'Cannot skip verification';
+      }
+    } finally {
+      busy = false;
+    }
+  }
+
+  async function manualRefresh() {
+    // Allow user to manually check status
+    busy = true;
+    error = '';
+    try {
+      const status = await api.checkInvitationStatus(token);
+      if (status.canAccept) {
+        stopPolling();
+        step = 'accept';
+      } else if (status.isFailed) {
+        stopPolling();
+        error = 'Verification failed. Please try again.';
+        step = 'error';
+      } else {
+        error = 'Still waiting for e.id verification...';
+      }
+    } catch (e) {
+      error = e instanceof Error ? e.message : 'Check failed';
+    } finally {
+      busy = false;
+    }
+  }
+
   async function accept() {
     busy = true;
     error = ''; // Clear any previous errors
@@ -172,6 +217,35 @@
         {#if error}
           <p class="mt-2 text-xs text-[var(--status-pending)]">{error}</p>
         {/if}
+      </div>
+
+      <!-- Manual refresh button for when polling doesn't auto-detect -->
+      <button
+        onclick={manualRefresh}
+        disabled={busy}
+        class="mt-4 w-full rounded-lg border border-[var(--border)] bg-[var(--background)] px-4 py-2 text-sm font-medium text-[var(--foreground)] hover:bg-[var(--muted)] disabled:opacity-50"
+      >
+        {busy ? 'Checking...' : 'Check Verification Status'}
+      </button>
+      <p class="mt-2 text-center text-xs text-[var(--muted-foreground)]">
+        Already approved in wallet? Click to refresh
+      </p>
+
+      <!-- Skip button for demo/testing when webhook fails -->
+      <div class="mt-6 border-t border-[var(--border)] pt-4">
+        <p class="text-xs text-[var(--muted-foreground)]">
+          Having trouble with e.id verification?
+        </p>
+        <button
+          onclick={skipToAccept}
+          disabled={busy}
+          class="mt-2 w-full rounded-lg border border-[var(--status-pending)] bg-[var(--status-pending-bg)] px-4 py-2 text-sm font-medium text-[var(--status-pending)] hover:opacity-80 disabled:opacity-50"
+        >
+          {busy ? 'Processing...' : 'Skip to Accept (Demo Mode)'}
+        </button>
+        <p class="mt-1 text-center text-xs text-[var(--muted-foreground)]">
+          Use only if e.id webhook is not working
+        </p>
       </div>
 
     {:else if step === 'accept'}

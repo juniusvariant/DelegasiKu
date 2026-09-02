@@ -103,7 +103,7 @@ export const api = {
     validFrom: string;
     expiresAt: string;
   }) =>
-    request<{ delegation: Delegation; invitationUrl: string }>('/api/delegations', {
+    request<{ delegation: Delegation; invitationUrl: string; proofUrl: string }>('/api/delegations', {
       method: 'POST',
       body: JSON.stringify(input),
     }),

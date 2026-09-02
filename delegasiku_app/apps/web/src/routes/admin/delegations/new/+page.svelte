@@ -13,6 +13,7 @@
   let validFrom = $state('');
   let expiresAt = $state('');
   let invitationUrl = $state('');
+  let proofUrl = $state('');
   let error = $state('');
   let submitting = $state(false);
 
@@ -44,6 +45,12 @@
       // the web app is actually served on (dev 5173, prod 3000, or a domain).
       const token = res.invitationUrl.split('/invitations/')[1] ?? '';
       invitationUrl = `${$page.url.origin}/invitations/${token}`;
+      
+      // Extract proof URL from response
+      if (res.proofUrl) {
+        const proofToken = res.proofUrl.split('/proof/')[1] ?? '';
+        proofUrl = `${$page.url.origin}/proof/${proofToken}`;
+      }
     } catch (err) {
       error = err instanceof Error ? err.message : 'Failed to create';
     } finally {
@@ -59,14 +66,33 @@
   <h1 class="mt-2 text-xl font-bold sm:text-2xl">Create Delegation</h1>
 
   {#if invitationUrl}
-    <div class="mt-6 rounded-xl border border-[var(--status-active)] bg-[var(--status-active-bg)] p-4 sm:p-6">
-      <h2 class="font-semibold text-[var(--status-active)]">✓ Invitation issued</h2>
-      <p class="mt-2 text-sm text-[var(--muted-foreground)]">
-        Share this link with the representative. It is shown <strong>only once</strong> and cannot be recovered.
-      </p>
-      <div class="mt-3 break-all rounded-lg bg-[var(--card)] p-3 font-mono text-xs sm:text-sm">{invitationUrl}</div>
-      <div class="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center">
-        <CopyButton text={invitationUrl} label="Copy link" />
+    <div class="mt-6 space-y-4">
+      <div class="rounded-xl border border-[var(--status-active)] bg-[var(--status-active-bg)] p-4 sm:p-6">
+        <h2 class="font-semibold text-[var(--status-active)]">✓ Invitation issued</h2>
+        <p class="mt-2 text-sm text-[var(--muted-foreground)]">
+          Share this link with the representative. It is shown <strong>only once</strong> and cannot be recovered.
+        </p>
+        <div class="mt-3 break-all rounded-lg bg-[var(--card)] p-3 font-mono text-xs sm:text-sm">{invitationUrl}</div>
+        <div class="mt-4">
+          <CopyButton text={invitationUrl} label="Copy invitation link" />
+        </div>
+      </div>
+
+      {#if proofUrl}
+        <div class="rounded-xl border border-[var(--primary)] bg-[var(--muted)] p-4 sm:p-6">
+          <h2 class="font-semibold">📋 Proof URL (Save this!)</h2>
+          <p class="mt-2 text-sm text-[var(--muted-foreground)]">
+            After the representative accepts, share this link with officers to verify the delegation status.
+            Save it now — it cannot be recovered later.
+          </p>
+          <div class="mt-3 break-all rounded-lg bg-[var(--card)] p-3 font-mono text-xs sm:text-sm">{proofUrl}</div>
+          <div class="mt-4">
+            <CopyButton text={proofUrl} label="Copy proof link" />
+          </div>
+        </div>
+      {/if}
+
+      <div class="flex justify-end">
         <button
           onclick={() => goto('/admin')}
           class="inline-flex min-h-[44px] items-center justify-center rounded-lg bg-[var(--primary)] px-4 py-2 font-medium text-[var(--primary-foreground)] hover:opacity-90"

@@ -75,8 +75,9 @@ export class DelegationService {
 
     return {
       delegation,
-      // Plaintext token shown ONCE; never stored (TOKEN-DESIGN §3)
+      // Plaintext tokens shown ONCE; never stored (TOKEN-DESIGN §3)
       invitationUrl: `${this.appBaseUrl}/invitations/${invitationToken}`,
+      proofUrl: `${this.appBaseUrl}/proof/${proofToken}`,
     };
   }
 
@@ -280,12 +281,11 @@ export class DelegationService {
     await this.audit(delegation.id, 'SCOPE_ACCEPTED', 'representative', {});
     await this.audit(delegation.id, 'DELEGATION_ACTIVATED', 'system', {});
 
-    // Proof token: we cannot re-derive plaintext from digest, so the proof URL
-    // is issued from the stored digest mapping. For the MVP the proof URL is
-    // resolved server-side; the representative sees it post-accept.
+    // Note: The plaintext proof token was returned during createDelegation().
+    // We cannot re-derive it from the digest stored in the database.
+    // The admin should have saved the proofUrl from the creation response.
     return {
       delegation: updated,
-      proofTokenDigest: updated.publicProofTokenDigest,
       simulationMode: this.adapter.getMode() === 'DEMO',
     };
   }

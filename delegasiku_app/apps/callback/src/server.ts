@@ -63,9 +63,18 @@ export async function buildCallbackApp() {
    * Fast 2xx; enqueue authoritative fetch (FR-06/15, AC-05/14)
    */
   app.post('/api/callbacks/eid/presentation', async (request, reply) => {
+    // Log incoming webhook for debugging
+    request.log.info({
+      headers: request.headers,
+      body: request.body
+    }, 'Incoming e.id webhook');
+    
     // Verify webhook signature in LIVE mode (skipped in DEMO)
     if (EID_WEBHOOK_SECRET && request.headers['x-signature'] !== EID_WEBHOOK_SECRET) {
-      request.log.warn('Invalid webhook signature');
+      request.log.warn({
+        received: request.headers['x-signature'],
+        expected: EID_WEBHOOK_SECRET
+      }, 'Invalid webhook signature');
       return reply.status(401).send({ error: { code: 'INVALID_SIGNATURE', message: 'Invalid signature', status: 401 } });
     }
 

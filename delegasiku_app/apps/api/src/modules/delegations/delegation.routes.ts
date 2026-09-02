@@ -40,6 +40,7 @@ export async function delegationRoutes(app: FastifyInstance, service: Delegation
     return reply.status(201).send({
       delegation: result.delegation,
       invitationUrl: result.invitationUrl,
+      proofUrl: result.proofUrl,
     });
   });
 
@@ -88,7 +89,6 @@ export async function delegationRoutes(app: FastifyInstance, service: Delegation
     const result = await service.acceptDelegation(token);
     return {
       delegation: result.delegation,
-      proofTokenDigest: result.proofTokenDigest,
       simulationMode: result.simulationMode,
     };
   });
